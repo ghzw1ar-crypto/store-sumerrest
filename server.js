@@ -15,6 +15,24 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, msg: 'خادم أمين المخزن شغّال' });
 });
 
+app.get('/test-notify', async (req, res) => {
+  try {
+    if (!TOKEN) return res.status(500).json({ ok: false, error: 'TELEGRAM_TOKEN غير موجود بمتغيرات البيئة' });
+    if (!CHAT_ID) return res.status(500).json({ ok: false, error: 'TELEGRAM_CHAT_ID غير موجود بمتغيرات البيئة' });
+
+    const tgUrl = `https://api.telegram.org/bot${TOKEN}/sendMessage`;
+    const tgRes = await fetch(tgUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: CHAT_ID, text: '✅ اختبار من خادم أمين المخزن — الاتصال شغال تمام' })
+    });
+    const tgData = await tgRes.json();
+    res.json(tgData);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
 app.post('/notify', async (req, res) => {
   try {
     const { itemName, qty, unit, employee, cost, barcode } = req.body || {};
