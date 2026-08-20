@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>أمين المخزن</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/JsBarcode/3.11.5/JsBarcode.all.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&family=Tajawal:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+  :root{
+    --bg:#121316; --panel:#1B1D21; --panel2:#23262B; --line:#33363C;
+    --ink:#F3F1EA; --ink-dim:#8D8E93; --ink-faint:#5B5C61;
+    --copper:#C6633B; --copper-bright:#E8834F;
+    --teal:#4C7A82; --ok:#4F9169; --ok-bg:rgba(79,145,105,.14);
+    --danger:#C24B45; --danger-bg:rgba(194,75,69,.14);
+    --warn:#D9A441; --warn-bg:rgba(217,164,65,.14);
+    --paper:#EFEBE1;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:var(--bg);}
+  body{font-family:'Tajawal',sans-serif;color:var(--ink);display:flex;justify-content:center;}
+  #app{width:100%;max-width:480px;min-height:100vh;display:flex;flex-direction:column;position:relative;}
+
+  header.top{padding:20px 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:linear-gradient(var(--bg) 80%, transparent);z-index:5;}
+  header.top .eyebrow{font-size:10.5px;letter-spacing:.14em;color:var(--copper-bright);font-weight:700;text-transform:uppercase;}
+  header.top h1{font-family:'Cairo',sans-serif;font-weight:900;font-size:21px;margin:3px 0 0;}
+  .sync{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--ink-dim);}
+  .sync .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--ok-bg);}
+
+  main{flex:1;padding:4px 18px 104px;overflow-y:auto;}
+  .view{display:none;} .view.active{display:block;animation:fadeIn .2s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ---- Dashboard stat cards ---- */
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 22px;}
+  .stat-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 10px;text-align:center;}
+  .stat-card .num{font-family:'Cairo',sans-serif;font-weight:900;font-size:20px;}
+  .stat-card .lbl{font-size:10px;color:var(--ink-dim);margin-top:2px;}
+  .stat-card.warn .num{color:var(--warn);}
+
+  .section-title{font-family:'Cairo',sans-serif;font-weight:700;font-size:14.5px;margin:6px 0 12px;display:flex;justify-content:space-between;align-items:center;}
+  .section-title .n{color:var(--ink-dim);font-weight:500;font-size:12px;}
+
+  .item-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .item-card.low{border-color:rgba(194,75,69,.45);}
+  .item-card .name{font-weight:700;font-size:14.5px;}
+  .item-card .meta{font-size:11.5px;color:var(--ink-dim);margin-top:2px;}
+  .item-card .qty{text-align:left;flex-shrink:0;}
+  .item-card .qty .num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:18px;}
+  .item-card.low .qty .num{color:var(--danger);}
+  .item-card .qty .unit{font-size:10px;color:var(--ink-dim);}
+  .pill{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:999px;margin-top:5px;font-weight:700;}
+  .pill.low{background:var(--danger-bg);color:#E28580;}
+
+  .empty{text-align:center;color:var(--ink-dim);font-size:12.5px;padding:34px 10px;border:1px dashed var(--line);border-radius:14px;}
+
+  label{font-size:11.5px;color:var(--ink-dim);display:block;margin:14px 0 6px;}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:12px 14px;border-radius:10px;font-size:14.5px;font-family:'Tajawal',sans-serif;}
+  input:focus,select:focus{outline:none;border-color:var(--copper);}
+  input.err-field{border-color:var(--danger);}
+  .field-err{font-size:11px;color:#E28580;margin-top:4px;display:none;}
+
+  .btn{width:100%;padding:14px;border-radius:12px;border:none;font-family:'Cairo',sans-serif;font-weight:700;font-size:14.5px;cursor:pointer;margin-top:16px;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--copper);color:#fff;}
+  .btn-secondary{background:var(--panel2);color:var(--ink);border:1px solid var(--line);}
+  .btn:disabled{opacity:.45;}
+
+  /* ticket */
+  .ticket{background:var(--paper);color:#1a1a1a;border-radius:4px;padding:18px 16px 14px;margin-top:20px;position:relative;box-shadow:0 12px 28px rgba(0,0,0,.4);}
+  .ticket:before,.ticket:after{content:"";position:absolute;width:16px;height:16px;background:var(--bg);border-radius:50%;top:50%;transform:translateY(-50%);}
+  .ticket:before{right:-8px;} .ticket:after{left:-8px;}
+  .ticket .tk-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dashed #9a9a9a;padding-bottom:8px;margin-bottom:8px;}
+  .ticket .tk-title{font-family:'Cairo',sans-serif;font-weight:800;font-size:13.5px;}
+  .ticket .tk-date{font-size:9.5px;color:#555;font-family:'JetBrains Mono',monospace;}
+  .ticket .tk-row{display:flex;justify-content:space-between;font-size:12px;margin:3px 0;color:#333;}
+  .ticket svg{width:100%;margin-top:10px;}
+  .ticket .tk-code{text-align:center;font-size:11px;letter-spacing:.1em;color:#333;margin-top:2px;font-family:'JetBrains Mono',monospace;}
+  .ticket-hint{font-size:11.5px;color:var(--ink-dim);margin-top:10px;text-align:center;}
+
+  .scan-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;text-align:center;margin-bottom:14px;}
+  #video-wrap{position:relative;border-radius:12px;overflow:hidden;background:#000;}
+  video{width:100%;display:block;}
+  .scan-frame{position:absolute;inset:16%;border:2px solid var(--copper-bright);border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.4);}
+  .scan-msg{font-size:11.5px;color:var(--ink-dim);margin-top:10px;}
+
+  .found-card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:14px;}
+  .found-card .fname{font-weight:700;font-family:'Cairo',sans-serif;font-size:15px;}
+  .found-card .frow{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-dim);margin-top:4px;}
+
+  .divider-or{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--ink-dim);font-size:10.5px;}
+  .divider-or:before,.divider-or:after{content:"";flex:1;height:1px;background:var(--line);}
+
+  .result-card{border-radius:14px;padding:15px 16px;margin-top:16px;display:none;}
+  .result-card.ok{background:var(--ok-bg);border:1px solid rgba(79,145,105,.4);}
+  .result-card.err{background:var(--danger-bg);border:1px solid rgba(194,75,69,.4);}
+  .result-card .title{font-weight:700;font-family:'Cairo',sans-serif;font-size:13.5px;margin-bottom:4px;display:flex;align-items:center;}
+  .result-card .sub{font-size:12px;color:var(--ink-dim);}
+  .tg-preview{margin-top:10px;background:#1a2b21;border:1px solid rgba(79,145,105,.35);border-radius:10px;padding:10px 12px;font-size:11.5px;display:flex;gap:8px;align-items:flex-start;}
+
+  .filter-row{display:flex;gap:6px;margin-bottom:14px;}
+  .filter-chip{flex:1;text-align:center;padding:8px 4px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--ink-dim);cursor:pointer;}
+  .filter-chip.active{background:var(--copper);color:#fff;border-color:var(--copper);}
+
+  .log-row{padding:11px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .log-row:last-child{border-bottom:none;}
+  .log-row .top-line{display:flex;align-items:center;gap:6px;}
+  .tag{font-size:9.5px;padding:2px 7px;border-radius:6px;font-weight:700;}
+  .tag.in{background:var(--ok-bg);color:#8FC498;} .tag.out{background:var(--danger-bg);color:#E28580;}
+  .log-row .meta{color:var(--ink-dim);font-size:11px;margin-top:3px;}
+  .log-row .code{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-faint);}
+
+  nav.bottom{position:fixed;bottom:0;width:100%;max-width:480px;background:rgba(18,19,22,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;padding:8px 8px calc(env(safe-area-inset-bottom) + 8px);}
+  nav.bottom button{flex:1;background:none;border:none;color:var(--ink-dim);font-family:'Tajawal',sans-serif;font-size:10.5px;padding:7px 0 4px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;}
+  nav.bottom button .ic{width:21px;height:21px;}
+  nav.bottom button .ic svg{width:100%;height:100%;fill:currentColor;}
+  nav.bottom button.active{color:var(--copper-bright);}
+
+  /* ---- icon system ---- */
+  .icon{display:inline-flex;vertical-align:middle;flex-shrink:0;}
+  .icon svg{fill:currentColor;}
+  .icon-copper{color:var(--copper-bright);}
+  .icon-ok{color:#8FC498;}
+  .icon-danger{color:#E28580;}
+  .btn .icon{width:17px;height:17px;margin-left:7px;}
+  .ticket-hint{display:flex;align-items:center;gap:7px;justify-content:center;}
+  .ticket-hint .icon{width:14px;height:14px;color:var(--copper-bright);}
+  .tg-preview .icon{width:16px;height:16px;color:#8FC498;margin-top:1px;}
+  .result-card .title .icon{width:16px;height:16px;margin-left:6px;}
+  .loading-veil{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--ink-dim);font-size:13px;z-index:50;}
+
+  /* ---- report ---- */
+  .week-nav{display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin:8px 0 16px;}
+  .wk-btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;}
+  .wk-btn svg{fill:currentColor;}
+  .wk-label{font-family:'Cairo',sans-serif;font-weight:700;font-size:13px;}
+  .report-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 16px;}
+  .rep-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--ink-dim);}
+  .rep-row:last-child{border-bottom:none;}
+  .rep-row b{font-family:'JetBrains Mono',monospace;color:var(--ink);font-weight:700;font-size:14px;}
+  .rep-row.highlight{color:var(--ink);}
+  .rep-row.highlight b{color:var(--copper-bright);font-size:16px;}
+  .rep-row.neg b{color:var(--danger)!important;}
+  .rep-row.pos b{color:var(--ok)!important;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="loading-veil" id="veil">جارِ التحميل...</div>
+
+  <header class="top">
+    <div>
+      <div class="eyebrow">مخزن المطعم</div>
+      <h1>أمين المخزن</h1>
+    </div>
+    <div class="sync" id="sync-status"><span class="dot" id="sync-dot"></span><span id="sync-text">محفوظ تلقائياً</span></div>
+  </header>
+
+  <div id="settings-bar" style="padding:0 20px 12px;">
+    <button id="settings-toggle" onclick="toggleSettings()" style="background:none;border:none;color:var(--ink-dim);font-size:11px;display:flex;align-items:center;gap:5px;cursor:pointer;padding:0;">
+      <svg viewBox="0 0 24 24" width="13" height="13" style="fill:currentColor;"><path d="M19.4 13a7.7 7.7 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.6 7.6 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.7 7.7 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5a.5.5 0 0 0 .6.2l2.5-1a7.6 7.6 0 0 0 1.7 1l.4 2.6a.5.5 0 0 0 .5.4h4a.5.5 0 0 0 .5-.4l.4-2.6a7.6 7.6 0 0 0 1.7-1l2.5 1a.5.5 0 0 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/></svg>
+      إعداد خادم الإشعارات
+    </button>
+    <div id="settings-panel" style="display:none;margin-top:10px;">
+      <label style="margin-top:0;">رابط الخادم (بعد نشره على Railway مثلاً)</label>
+      <input id="server-url" placeholder="https://your-app.up.railway.app">
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="saveServerUrl()">حفظ</button>
+      <div class="scan-msg" id="server-status"></div>
+    </div>
+  </div>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view active">
+      <div class="stat-row">
+        <div class="stat-card"><div class="num" id="stat-items">0</div><div class="lbl">صنف</div></div>
+        <div class="stat-card warn"><div class="num" id="stat-low">0</div><div class="lbl">منخفض</div></div>
+        <div class="stat-card"><div class="num" id="stat-today">0</div><div class="lbl">حركة اليوم</div></div>
+      </div>
+
+      <div class="section-title">الأصناف بالمخزون <span class="n" id="items-count"></span></div>
+      <div id="items-list"></div>
+    </section>
+
+    <!-- RECEIVE -->
+    <section id="view-receive" class="view">
+      <div class="section-title">تسجيل استلام بضاعة</div>
+      <label>الصنف</label>
+      <select id="rcv-item"><option value="">— اختر صنف موجود —</option></select>
+
+      <label>أو أضف صنف جديد</label>
+      <input id="rcv-new-item" placeholder="اكتب اسم صنف جديد فقط إذا مو موجود">
+      <div class="field-err" id="err-newitem">هذا الاسم موجود مسبقاً بالمخزون</div>
+
+      <label>وحدة القياس (لصنف جديد فقط)</label>
+      <input id="rcv-unit" placeholder="كيلو / كرتون / قطعة">
+
+      <label>الحد الأدنى للتنبيه (لصنف جديد فقط)</label>
+      <input id="rcv-min" type="number" min="0" placeholder="مثال: 5">
+
+      <label>الكمية المستلمة</label>
+      <input id="rcv-qty" type="number" min="0.01" step="0.01" placeholder="0">
+      <div class="field-err" id="err-qty">أدخل كمية أكبر من صفر</div>
+
+      <label>سعر الشراء للوحدة الواحدة (د.ع)</label>
+      <input id="rcv-cost" type="number" min="0" step="0.01" placeholder="0">
+      <div class="field-err" id="err-cost">أدخل سعر شراء صحيح</div>
+
+      <label>اسم الموظف المستلم</label>
+      <input id="rcv-employee" placeholder="اسمك">
+      <div class="field-err" id="err-employee">هذا الحقل مطلوب</div>
+
+      <button class="btn btn-primary" id="rcv-submit" onclick="receiveGoods()">تسجيل الاستلام وتوليد الباركود</button>
+      <div id="ticket-out"></div>
+    </section>
+
+    <!-- ISSUE -->
+    <section id="view-issue" class="view">
+      <div class="section-title">صرف من المخزن — بالباركود فقط</div>
+      <div class="scan-box">
+        <div id="video-wrap" style="display:none;">
+          <video id="video" playsinline muted></video>
+          <div class="scan-frame"></div>
+        </div>
+        <button class="btn btn-primary" id="scan-btn" onclick="startScan()"><span class="icon"><svg viewBox="0 0 24 24" width="17" height="17"><path d="M9.4 3 7.8 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.8L14.6 3H9.4ZM12 8a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 2.2A3.3 3.3 0 1 0 12 17a3.3 3.3 0 0 0 0-6.8Z"/></svg></span>فتح الكاميرا ومسح الباركود</button>
+        <div class="scan-msg" id="scan-msg"></div>
+      </div>
+
+      <div class="divider-or">أو أدخل الكود يدوياً</div>
+      <label>كود الباركود</label>
+      <input id="manual-code" placeholder="مثال: WH-A1B2C3" oninput="lookupCode()">
+      <div id="found-box"></div>
+
+      <label>الكمية المطلوب صرفها</label>
+      <input id="issue-qty" type="number" min="0.01" step="0.01" placeholder="0">
+      <label>اسم الموظف الصارف</label>
+      <input id="issue-employee" placeholder="اسمك">
+      <button class="btn btn-secondary" onclick="issueByCode()">تأكيد الصرف</button>
+
+      <div id="issue-result" class="result-card"></div>
+    </section>
+
+    <!-- LOG -->
+    <section id="view-log" class="view">
+      <div class="section-title">سجل الحركات</div>
+      <div class="filter-row">
+        <div class="filter-chip active" data-f="all" onclick="setFilter('all',this)">الكل</div>
+        <div class="filter-chip" data-f="in" onclick="setFilter('in',this)">دخول</div>
+        <div class="filter-chip" data-f="out" onclick="setFilter('out',this)">خروج</div>
+      </div>
+      <div id="log-list"></div>
+    </section>
+
+    <!-- REPORT -->
+    <section id="view-report" class="view">
+      <div class="week-nav">
+        <button class="wk-btn" onclick="shiftWeek(1)">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.4 6 9.4 12l6 6-1.8 1.8L5.8 12l7.8-7.8L15.4 6Z"/></svg>
+        </button>
+        <div class="wk-label" id="wk-label">—</div>
+        <button class="wk-btn" onclick="shiftWeek(-1)">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path d="M8.6 6 14.6 12l-6 6 1.8 1.8L18.2 12l-7.8-7.8L8.6 6Z"/></svg>
+        </button>
+      </div>
+
+      <div class="report-card">
+        <div class="rep-row highlight"><span>تكلفة البضاعة المصروفة (COGS)</span><b id="rep-cogs">0</b></div>
+      </div>
+
+      <div class="section-title" style="margin-top:22px;">الجرد الفعلي — نهاية الأسبوع</div>
+      <label>إجمالي المبيعات الفعلية من الكاشير (د.ع)</label>
+      <input id="rep-actual-sales" type="number" min="0" step="0.01" placeholder="0">
+      <button class="btn btn-primary" onclick="saveActualSales()">حفظ وحساب الربح</button>
+
+      <div class="report-card" id="rep-actual-box" style="display:none;margin-top:16px;">
+        <div class="rep-row"><span>المبيعات الفعلية</span><b id="rep-actual-sales-out">0</b></div>
+        <div class="rep-row"><span>تكلفة البضاعة (COGS)</span><b id="rep-cogs2">0</b></div>
+        <div class="rep-row highlight"><span>الربح / الخسارة</span><b id="rep-real-profit">0</b></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom">
+    <button class="active" data-v="dashboard" onclick="switchView('dashboard',this)"><span class="ic">
+      <svg viewBox="0 0 24 24"><path d="M12 2 3 6.5v11L12 22l9-4.5v-11L12 2Zm0 2.24 6.03 3.02L12 10.28 5.97 7.26 12 4.24ZM5 9.5l6 3v7.28l-6-3V9.5Zm8 10.28V12.5l6-3v7.28l-6 3Z"/></svg>
+    </span>المخزون</button>
+    <button data-v="receive" onclick="switchView('receive',this)"><span class="ic">
+      <svg viewBox="0 0 24 24"><path d="M5 3h14a2 2 0 0 1 2 2v6h-4.17l-1.41 2H8.58l-1.41-2H3V5a2 2 0 0 1 2-2Zm16 10v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6h5.17l1.41 2h4.84l1.41-2H21ZM13 4v4.17l1.59-1.58L16 8l-4 4-4-4 1.41-1.41L11 8.17V4h2Z"/></svg>
+    </span>استلام</button>
+    <button data-v="issue" onclick="switchView('issue',this)"><span class="ic">
+      <svg viewBox="0 0 24 24"><path d="M5 3h14a2 2 0 0 1 2 2v6h-4.17l-1.41 2H8.58l-1.41-2H3V5a2 2 0 0 1 2-2Zm16 10v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6h5.17l1.41 2h4.84l1.41-2H21ZM13 12V7.83l1.59 1.58L16 8l-4-4-4 4 1.41 1.41L11 7.83V12h2Z"/></svg>
+    </span>صرف</button>
+    <button data-v="log" onclick="switchView('log',this)"><span class="ic">
+      <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM7 12h10v1.6H7V12Zm0 3.4h10V17H7v-1.6ZM7 8.6h5v1.6H7V8.6Z"/></svg>
+    </span>السجل</button>
+    <button data-v="report" onclick="switchView('report',this)"><span class="ic">
+      <svg viewBox="0 0 24 24"><path d="M4 20V10h4v10H4Zm6 0V4h4v16h-4Zm6 0v-7h4v7h-4Z"/></svg>
+    </span>التقرير</button>
+  </nav>
+</div>
+
+<script>
+/* ---------------- Persistent state via localStorage ---------------- */
+let items = [], batches = [], transactions = [];
+let nextItemId=1, nextBatchId=1, nextTxId=1;
+let logFilter = 'all';
+let weeklySales = {}; // { 'YYYY-MM-DD' (week start=Saturday): actualSalesAmount }
+let currentWeekOffset = 0; // 0 = this week, -1 = previous week, etc.
+let serverUrl = '';
+
+/* Storage layer: uses localStorage so the app works as a standalone file
+   opened directly in any mobile browser (not just inside Claude's UI). */
+function storageGet(key){
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+function storageSet(key, val){
+  try{ localStorage.setItem(key, val); return true; }catch(e){ return false; }
+}
+
+function toggleSettings(){
+  const p = document.getElementById('settings-panel');
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+}
+async function saveServerUrl(){
+  let url = document.getElementById('server-url').value.trim().replace(/\/$/,'');
+  serverUrl = url;
+  storageSet('warehouse-server-url', serverUrl);
+  const status = document.getElementById('server-status');
+  if(!url){ status.textContent=''; return; }
+  status.textContent = 'جارٍ التحقق من الاتصال...';
+  try{
+    const r = await fetch(serverUrl + '/');
+    if(r.ok){ status.textContent = '✅ متصل بالخادم بنجاح'; }
+    else{ status.textContent = '⚠️ الخادم رد لكن فيه مشكلة — تأكد من الرابط'; }
+  }catch(e){
+    status.textContent = '⚠️ ما قدرنا نوصل للخادم — تأكد من الرابط أو إنه شغّال';
+  }
+}
+
+function loadState(){
+  try{
+    const raw = storageGet('warehouse-state');
+    if(raw){
+      const d = JSON.parse(raw);
+      items = d.items||[]; batches = d.batches||[]; transactions = d.transactions||[];
+      nextItemId = d.nextItemId||1; nextBatchId = d.nextBatchId||1; nextTxId = d.nextTxId||1;
+      weeklySales = d.weeklySales||{};
+    }
+  }catch(e){ /* no saved state yet */ }
+  try{
+    const su = storageGet('warehouse-server-url');
+    if(su){ serverUrl = su; }
+    else if(location.protocol.startsWith('http')){
+      // app is served over http(s) by the same backend — default to same origin
+      serverUrl = location.origin;
+    }
+    document.getElementById('server-url').value = serverUrl;
+  }catch(e){}
+  document.getElementById('veil').style.display='none';
+  renderAll();
+}
+function saveState(){
+  const ok = storageSet('warehouse-state', JSON.stringify({items,batches,transactions,nextItemId,nextBatchId,nextTxId,weeklySales}));
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-text');
+  if(dot && txt){
+    if(ok){ dot.style.background='var(--ok)'; txt.textContent='محفوظ تلقائياً'; }
+    else{ dot.style.background='var(--danger)'; txt.textContent='تعذّر الحفظ على هذا الجهاز'; }
+  }
+}
+
+function fmtMoney(n){ return round2(n||0).toLocaleString('en-US') + ' د.ع'; }
+/* Week runs Saturday -> Friday (Friday = week-end, per business setting) */
+function getWeekStart(offset){
+  const d = new Date();
+  d.setDate(d.getDate() + offset*7);
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = (day - 6 + 7) % 7; // days since last Saturday
+  d.setDate(d.getDate() - diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function weekKey(d){ return d.toISOString().slice(0,10); }
+function shiftWeek(dir){ currentWeekOffset += dir; if(currentWeekOffset>0) currentWeekOffset=0; renderReport(); }
+
+function fmtTime(d){ d=new Date(d); return d.toLocaleDateString('ar-EG',{day:'2-digit',month:'2-digit'}) + ' — ' + d.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}); }
+function isToday(d){ const a=new Date(d), b=new Date(); return a.toDateString()===b.toDateString(); }
+function genBarcode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='WH-';
+  do{ s='WH-'; for(let i=0;i<6;i++) s+=chars[Math.floor(Math.random()*chars.length)]; }
+  while(batches.some(b=>b.barcode===s));
+  return s;
+}
+
+/* ---------------- Navigation ---------------- */
+function switchView(name, btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('nav.bottom button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(name!=='issue') stopScan();
+  renderAll();
+}
+
+/* ---------------- Render ---------------- */
+function renderAll(){
+  renderStats();
+  renderItems();
+  renderReceiveSelect();
+  renderLog();
+  renderReport();
+}
+function renderStats(){
+  document.getElementById('stat-items').textContent = items.length;
+  document.getElementById('stat-low').textContent = items.filter(i=>i.qty<=i.minQty).length;
+  document.getElementById('stat-today').textContent = transactions.filter(t=>isToday(t.date)).length;
+}
+function renderItems(){
+  const list = document.getElementById('items-list');
+  document.getElementById('items-count').textContent = '('+items.length+')';
+  if(items.length===0){ list.innerHTML='<div class="empty">لا يوجد أصناف بعد — سجل أول استلام بضاعة من تاب "استلام"</div>'; return; }
+  list.innerHTML = [...items].sort((a,b)=>a.qty<=a.minQty ? -1 : 1).map(it=>{
+    const low = it.qty <= it.minQty;
+    return `<div class="item-card ${low?'low':''}">
+      <div>
+        <div class="name">${escapeHtml(it.name)}</div>
+        <div class="meta">حد أدنى: ${it.minQty} ${escapeHtml(it.unit)}</div>
+        ${low?'<span class="pill low">مخزون منخفض</span>':''}
+      </div>
+      <div class="qty"><div class="num">${round2(it.qty)}</div><div class="unit">${escapeHtml(it.unit)}</div></div>
+    </div>`;
+  }).join('');
+}
+function renderReceiveSelect(){
+  const sel = document.getElementById('rcv-item');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— اختر صنف موجود —</option>' + items.map(it=>`<option value="${it.id}">${escapeHtml(it.name)} (${escapeHtml(it.unit)})</option>`).join('');
+  sel.value = cur;
+}
+function setFilter(f, el){
+  logFilter=f;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderLog();
+}
+function renderLog(){
+  const box = document.getElementById('log-list');
+  let rows = [...transactions].reverse();
+  if(logFilter!=='all') rows = rows.filter(t=>t.type===logFilter);
+  if(rows.length===0){ box.innerHTML='<div class="empty">ما فيه حركات مطابقة</div>'; return; }
+  box.innerHTML = rows.map(t=>`
+    <div class="log-row">
+      <div class="top-line">
+        <span class="tag ${t.type}">${t.type==='in'?'دخول':'خروج'}</span>
+        <span>${escapeHtml(t.itemName)} — ${round2(t.qty)} ${escapeHtml(t.unit)}</span>
+      </div>
+      <div class="meta">${escapeHtml(t.employee)} · ${fmtTime(t.date)} · <span class="code">${t.barcode}</span></div>
+      ${t.type==='out' && t.cost!==undefined ? `<div class="meta">التكلفة: ${fmtMoney(t.cost)}</div>` : ''}
+    </div>`).join('');
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function round2(n){ return Math.round(n*100)/100; }
+
+/* ---------------- Weekly report ---------------- */
+function renderReport(){
+  const wkLabelEl = document.getElementById('wk-label');
+  if(!wkLabelEl) return;
+  const start = getWeekStart(currentWeekOffset);
+  const end = new Date(start); end.setDate(end.getDate()+6); end.setHours(23,59,59,999);
+  const key = weekKey(start);
+
+  wkLabelEl.textContent = start.toLocaleDateString('ar-EG',{day:'2-digit',month:'2-digit'}) + ' — ' + end.toLocaleDateString('ar-EG',{day:'2-digit',month:'2-digit'}) + (currentWeekOffset===0?' (الحالي)':'');
+
+  const weekTx = transactions.filter(t=>{ const d=new Date(t.date); return d>=start && d<=end; });
+  const outTx = weekTx.filter(t=>t.type==='out');
+  const cogs = outTx.reduce((s,t)=>s + (t.cost||0), 0);
+
+  document.getElementById('rep-cogs').textContent = fmtMoney(cogs);
+
+  const actual = weeklySales[key];
+  const actualInput = document.getElementById('rep-actual-sales');
+  actualInput.value = (actual!==undefined && actual!==null) ? actual : '';
+
+  const box = document.getElementById('rep-actual-box');
+  if(actual!==undefined && actual!==null){
+    box.style.display='block';
+    const realProfit = actual - cogs;
+    document.getElementById('rep-actual-sales-out').textContent = fmtMoney(actual);
+    document.getElementById('rep-cogs2').textContent = fmtMoney(cogs);
+    const rp = document.getElementById('rep-real-profit');
+    rp.textContent = fmtMoney(realProfit);
+    rp.parentElement.classList.toggle('neg', realProfit<0);
+    rp.parentElement.classList.toggle('pos', realProfit>=0);
+  } else {
+    box.style.display='none';
+  }
+}
+function saveActualSales(){
+  const start = getWeekStart(currentWeekOffset);
+  const key = weekKey(start);
+  const val = parseFloat(document.getElementById('rep-actual-sales').value);
+  if(isNaN(val) || val<0){ alert('أدخل رقم مبيعات صحيح'); return; }
+  weeklySales[key] = val;
+  saveState();
+  renderReport();
+}
+
+/* ---------------- Field error helpers ---------------- */
+function showErr(id, show){ const el=document.getElementById(id); if(el) el.style.display = show?'block':'none'; }
+function markField(id, bad){ const el=document.getElementById(id); if(el) el.classList.toggle('err-field', bad); }
+
+/* ---------------- Receive flow ---------------- */
+function receiveGoods(){
+  const selId = document.getElementById('rcv-item').value;
+  const newNameRaw = document.getElementById('rcv-new-item').value.trim();
+  const unitInput = document.getElementById('rcv-unit').value.trim();
+  const minInput = parseFloat(document.getElementById('rcv-min').value);
+  const qty = parseFloat(document.getElementById('rcv-qty').value);
+  const costPrice = parseFloat(document.getElementById('rcv-cost').value);
+  const employee = document.getElementById('rcv-employee').value.trim();
+
+  let ok = true;
+
+  showErr('err-newitem', false); markField('rcv-new-item', false);
+  if(!selId && newNameRaw){
+    const dup = items.some(i=>i.name.trim().toLowerCase()===newNameRaw.toLowerCase());
+    if(dup){ showErr('err-newitem', true); markField('rcv-new-item', true); ok=false; }
+  }
+
+  markField('rcv-qty', false); showErr('err-qty', false);
+  if(!qty || qty<=0){ markField('rcv-qty', true); showErr('err-qty', true); ok=false; }
+
+  markField('rcv-cost', false); showErr('err-cost', false);
+  if(isNaN(costPrice) || costPrice<0){ markField('rcv-cost', true); showErr('err-cost', true); ok=false; }
+
+  markField('rcv-employee', false); showErr('err-employee', false);
+  if(!employee){ markField('rcv-employee', true); showErr('err-employee', true); ok=false; }
+
+  if(!selId && !newNameRaw){ alert('اختر صنف موجود أو أدخل اسم صنف جديد'); ok=false; }
+
+  if(!ok) return;
+
+  let item;
+  if(selId){
+    item = items.find(i=>i.id==selId);
+  } else {
+    item = { id: nextItemId++, name:newNameRaw, unit: unitInput || 'قطعة', minQty: (isNaN(minInput)?5:minInput), qty:0 };
+    items.push(item);
+  }
+  item.qty = round2(item.qty + qty);
+
+  const barcode = genBarcode();
+  const now = new Date().toISOString();
+  batches.push({ id: nextBatchId++, itemId:item.id, barcode, qtyReceived:qty, qtyRemaining:qty, costPrice, date:now });
+  transactions.push({ id: nextTxId++, type:'in', itemName:item.name, qty, unit:item.unit, employee, date:now, barcode, costPrice });
+
+  showTicket(item, qty, barcode, employee, now, costPrice);
+
+  document.getElementById('rcv-new-item').value='';
+  document.getElementById('rcv-unit').value='';
+  document.getElementById('rcv-min').value='';
+  document.getElementById('rcv-qty').value='';
+  document.getElementById('rcv-cost').value='';
+  saveState();
+  renderAll();
+}
+function showTicket(item, qty, barcode, employee, date, costPrice){
+  const out = document.getElementById('ticket-out');
+  out.innerHTML = `
+    <div class="ticket">
+      <div class="tk-head"><span class="tk-title">تذكرة استلام</span><span class="tk-date">${fmtTime(date)}</span></div>
+      <div class="tk-row"><span>الصنف</span><span>${escapeHtml(item.name)}</span></div>
+      <div class="tk-row"><span>الكمية</span><span>${round2(qty)} ${escapeHtml(item.unit)}</span></div>
+      <div class="tk-row"><span>الموظف</span><span>${escapeHtml(employee)}</span></div>
+      <div class="tk-row"><span>سعر الشراء</span><span>${round2(costPrice)} د.ع</span></div>
+      <svg id="barcode-svg"></svg>
+      <div class="tk-code">${barcode}</div>
+    </div>
+    <div class="ticket-hint"><span class="icon"><svg viewBox="0 0 24 24"><path d="M17.6 3.5a2 2 0 0 1 2.83 0l.07.07a2 2 0 0 1 0 2.83l-4.3 4.3.87 3.9a1.2 1.2 0 0 1-2 1.11l-3.2-2.66-4.53 4.53a1 1 0 0 1-1.42-1.42l4.53-4.53-2.66-3.2a1.2 1.2 0 0 1 1.11-2l3.9.87 4.3-4.3Z"/></svg></span>اطبع هذا الباركود والصقه على الصنف — بدونه ما يقدر أحد يسحبه من المخزون</div>`;
+  JsBarcode("#barcode-svg", barcode, { format:"CODE128", displayValue:false, height:48, margin:0, background:"#EFEBE1" });
+}
+
+/* ---------------- Issue flow ---------------- */
+let stream=null, scanTimer=null;
+
+async function startScan(){
+  const msg = document.getElementById('scan-msg');
+  if(!('BarcodeDetector' in window)){
+    msg.textContent = '⚠️ متصفحك ما يدعم قراءة الباركود بالكاميرا مباشرة — استخدم الإدخال اليدوي بالأسفل';
+    return;
+  }
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' } });
+    const video = document.getElementById('video');
+    video.srcObject = stream; await video.play();
+    document.getElementById('video-wrap').style.display='block';
+    document.getElementById('scan-btn').style.display='none';
+    msg.textContent = 'وجّه الكاميرا نحو الباركود...';
+    const detector = new BarcodeDetector({ formats:['code_128','ean_13','qr_code'] });
+    scanTimer = setInterval(async ()=>{
+      try{
+        const codes = await detector.detect(video);
+        if(codes.length>0){
+          document.getElementById('manual-code').value = codes[0].rawValue.toUpperCase();
+          lookupCode();
+          stopScan();
+        }
+      }catch(e){}
+    }, 400);
+  }catch(err){
+    msg.textContent = '⚠️ ما قدرنا نفتح الكاميرا (تأكد من إذن الوصول) — استخدم الإدخال اليدوي';
+  }
+}
+function stopScan(){
+  if(scanTimer){ clearInterval(scanTimer); scanTimer=null; }
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  document.getElementById('video-wrap').style.display='none';
+  document.getElementById('scan-btn').style.display='block';
+}
+
+function lookupCode(){
+  const code = document.getElementById('manual-code').value.trim().toUpperCase();
+  const box = document.getElementById('found-box');
+  if(!code){ box.innerHTML=''; return; }
+  const batch = batches.find(b=>b.barcode===code && b.qtyRemaining>0);
+  if(!batch){ box.innerHTML = `<div class="field-err" style="display:block;">لا يوجد صنف بهذا الباركود أو خلصت كميته</div>`; return; }
+  const item = items.find(i=>i.id===batch.itemId);
+  box.innerHTML = `<div class="found-card">
+    <div class="fname">✅ ${escapeHtml(item.name)}</div>
+    <div class="frow"><span>المتبقي بهذي الدفعة</span><span>${round2(batch.qtyRemaining)} ${escapeHtml(item.unit)}</span></div>
+  </div>`;
+}
+
+async function issueByCode(){
+  const code = document.getElementById('manual-code').value.trim().toUpperCase();
+  const qty = parseFloat(document.getElementById('issue-qty').value);
+  const employee = document.getElementById('issue-employee').value.trim();
+
+  if(!code){ flashResult(false,'ما فيه كود','امسح الباركود أو أدخله يدوياً أولاً'); return; }
+  const batch = batches.find(b=>b.barcode===code && b.qtyRemaining>0);
+  if(!batch){ flashResult(false,'باركود غير معروف','هذا الكود مو مسجل بالمخزون أو خلصت كميته — ما يمكن الصرف بدونه'); return; }
+  const item = items.find(i=>i.id===batch.itemId);
+  if(!qty || qty<=0){ flashResult(false,'كمية غير صحيحة','أدخل كمية أكبر من صفر'); return; }
+  if(qty > batch.qtyRemaining){ flashResult(false,'الكمية أكبر من المتوفر',`المتوفر بهذي الدفعة: ${round2(batch.qtyRemaining)} ${item.unit} فقط`); return; }
+  if(!employee){ flashResult(false,'اسم الموظف مطلوب','أدخل اسمك قبل تأكيد الصرف'); return; }
+
+  batch.qtyRemaining = round2(batch.qtyRemaining - qty);
+  item.qty = round2(item.qty - qty);
+  const now = new Date().toISOString();
+  const cost = round2(qty * (batch.costPrice||0));
+  transactions.push({ id: nextTxId++, type:'out', itemName:item.name, qty, unit:item.unit, employee, date:now, barcode:code, cost });
+
+  flashResult(true, `تم صرف ${round2(qty)} ${item.unit} من "${item.name}"`, `بواسطة ${employee} — ${fmtTime(now)} — تكلفة: ${fmtMoney(cost)}`, 'pending', item, qty, employee, now);
+
+  document.getElementById('manual-code').value='';
+  document.getElementById('issue-qty').value='';
+  document.getElementById('found-box').innerHTML='';
+  saveState();
+  renderAll();
+
+  // send real Telegram notification if a server is configured
+  if(serverUrl){
+    try{
+      const r = await fetch(serverUrl + '/notify', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ itemName:item.name, qty, unit:item.unit, employee, cost, barcode:code })
+      });
+      const d = await r.json();
+      updateTgStatus(d.ok ? 'sent' : 'failed');
+    }catch(e){ updateTgStatus('failed'); }
+  } else {
+    updateTgStatus('simulated');
+  }
+}
+function updateTgStatus(state){
+  const el = document.getElementById('tg-status-line');
+  if(!el) return;
+  if(state==='sent') el.innerHTML = '✅ وصل الإشعار فعلياً لتيليجرام';
+  else if(state==='failed') el.innerHTML = '⚠️ ما وصل الإشعار — تأكد من رابط الخادم بالإعدادات';
+  else el.innerHTML = 'ℹ️ محاكاة فقط — أضف رابط الخادم بالإعدادات لإرسال إشعار حقيقي';
+}
+const ICON_CHECK = '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.6-4-4 1.5-1.5 2.5 2.5 5.9-5.9 1.5 1.5-7.4 7.4Z"/></svg>';
+const ICON_ALERT = '<svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2Zm0 6.5 5.5 9.5h-11L12 8.5Zm-1 3v3h2v-3h-2Zm0 4.2v2h2v-2h-2Z"/></svg>';
+const ICON_PLANE = '<svg viewBox="0 0 24 24"><path d="M21.5 2.5 2 10l6.5 2.7L11.7 22l3.1-4.4 4.8 3.7L21.5 2.5ZM9.6 13.4 4.9 11.5l12.7-5-6.6 6.2Zm1.6 1.1 6.1-5.7-3.6 9.6-2.5-3.9Z"/></svg>';
+function flashResult(ok,title,sub,showTg,item,qty,employee,date){
+  const box = document.getElementById('issue-result');
+  box.className = 'result-card ' + (ok?'ok':'err');
+  box.style.display='block';
+  const icon = `<span class="icon ${ok?'icon-ok':'icon-danger'}">${ok?ICON_CHECK:ICON_ALERT}</span>`;
+  box.innerHTML = `<div class="title">${icon}${escapeHtml(title)}</div><div class="sub">${escapeHtml(sub)}</div>` +
+    (showTg ? `<div class="tg-preview"><span class="icon">${ICON_PLANE}</span><div><b>إشعار تيليجرام:</b><br>خروج من المخزن: ${round2(qty)} ${escapeHtml(item.unit)} — ${escapeHtml(item.name)}<br>بواسطة: ${escapeHtml(employee)} — ${fmtTime(date)}<br><span id="tg-status-line" style="font-size:11px;">جارٍ الإرسال...</span></div></div>` : '');
+}
+
+loadState();
+</script>
+</body>
+</html>
