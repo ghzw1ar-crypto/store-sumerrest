@@ -6,6 +6,11 @@ const path = require('path');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  // safety net: collapse accidental double slashes (e.g. "//notify") from client URL bugs
+  if (req.url.includes('//')) req.url = req.url.replace(/\/{2,}/g, '/');
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 const TOKEN = process.env.TELEGRAM_TOKEN;
