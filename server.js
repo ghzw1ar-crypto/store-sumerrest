@@ -71,5 +71,15 @@ app.post('/notify', async (req, res) => {
   }
 });
 
+// diagnostic catch-all: if nothing above matched, tell us exactly what came in
+app.use((req, res) => {
+  res.status(404).json({
+    ok: false,
+    error: 'NOT_FOUND',
+    method: req.method,
+    path: req.originalUrl
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server running on port ' + PORT));
